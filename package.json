@@ -4,13 +4,22 @@
   "description": "MCP server backed by Neo4j for storing team decisions, constraints, and cross-product knowledge",
   "main": "dist/index.js",
   "bin": {
-    "team-knowledge-graph": "./bin/team-knowledge-graph.js"
+    "team-knowledge-graph": "./bin/team-knowledge-graph.js",
+    "tkg": "./bin/team-knowledge-graph.js",
+    "tkg-setup": "./bin/setup.js"
   },
+  "files": [
+    "dist/",
+    "bin/",
+    "docker-compose.yml",
+    "seed/"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "test": "node --test tests/*.test.js",
+    "setup": "node bin/setup.js",
     "neo4j:up": "docker compose up -d",
     "neo4j:down": "docker compose down",
     "seed": "cat seed/fieldcamp.cypher | docker exec -i team-knowledge-neo4j cypher-shell -u neo4j -p knowledge-graph-local"
