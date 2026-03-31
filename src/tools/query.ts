@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { int } from 'neo4j-driver';
 import { getSession } from '../neo4j.js';
 import { RepoInfo } from '../git.js';
 
@@ -71,7 +72,7 @@ export async function query(input: QueryInput, _repo: RepoInfo | null): Promise<
       const result = await session.run(cypher, {
         searchQuery,
         product: input.product ?? null,
-        limit: input.limit,
+        limit: int(input.limit),
       });
       records = result.records;
     } catch (_err) {
@@ -103,7 +104,7 @@ export async function query(input: QueryInput, _repo: RepoInfo | null): Promise<
       const result = await session.run(cypher, {
         queryRaw: input.query,
         product: input.product ?? null,
-        limit: input.limit,
+        limit: int(input.limit),
       });
       records = result.records;
     }
