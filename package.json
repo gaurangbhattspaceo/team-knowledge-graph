@@ -1,12 +1,19 @@
 {
   "name": "team-knowledge-graph",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/gaurangbhattspaceo/team-knowledge-graph"
   },
-  "keywords": ["mcp", "neo4j", "knowledge-graph", "ai-agent", "context", "decisions"],
+  "keywords": [
+    "mcp",
+    "neo4j",
+    "knowledge-graph",
+    "ai-agent",
+    "context",
+    "decisions"
+  ],
   "description": "MCP server backed by Neo4j for storing team decisions, constraints, and cross-product knowledge",
   "main": "dist/index.js",
   "bin": {
