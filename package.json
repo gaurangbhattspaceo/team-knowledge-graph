@@ -35,7 +35,7 @@
     "setup": "node bin/setup.js",
     "neo4j:up": "docker compose up -d",
     "neo4j:down": "docker compose down",
-    "seed": "cat seed/fieldcamp.cypher | docker exec -i team-knowledge-neo4j cypher-shell -u neo4j -p knowledge-graph-local"
+    "seed": "cat seed/example.cypher | docker exec -i team-knowledge-neo4j cypher-shell -u neo4j -p knowledge-graph-local"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
