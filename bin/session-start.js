@@ -3,7 +3,7 @@
  * SessionStart hook — queries the knowledge graph for entries relevant to this repo
  * and outputs them as context for the AI agent.
  *
- * Runs automatically at the start of every Claude Code session.
+ * Runs automatically at the start of every AI coding session.
  * Output goes to stdout → injected into conversation context.
  */
 const neo4j = require('neo4j-driver');

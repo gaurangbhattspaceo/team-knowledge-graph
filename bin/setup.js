@@ -11,8 +11,8 @@
  *   1. Checks Docker is running
  *   2. Starts Neo4j container (if not already running)
  *   3. Waits for Neo4j to be ready
- *   4. Configures Claude Code MCP server (~/.claude/.mcp.json)
- *   5. Adds SessionStart hook to Claude Code settings
+ *   4. Configures MCP server (~/.claude/.mcp.json)
+ *   5. Adds SessionStart hook to MCP client settings
  *   6. Adds CLAUDE.md instructions for auto-save
  *   7. Verifies everything works
  */
@@ -115,10 +115,10 @@ function waitForNeo4j() {
   fail('Neo4j failed to start after 30 seconds. Check: docker logs team-knowledge-neo4j');
 }
 
-// ── Step 3: Configure Claude Code MCP ──
+// ── Step 3: Configure MCP ──
 
 function configureMCP() {
-  step('Configuring Claude Code MCP server...');
+  step('Configuring MCP server...');
 
   const mcpConfig = readJSON(MCP_JSON);
   if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
@@ -238,7 +238,7 @@ function printSuccess() {
 ║  Neo4j Browser:  http://localhost:7474                    ║
 ║  Login:          neo4j / knowledge-graph-local            ║
 ║                                                           ║
-║  Start a new Claude Code session — it will:               ║
+║  Start a new AI coding session — it will:               ║
 ║    • Auto-load known decisions and constraints            ║
 ║    • Auto-save new discoveries during work                ║
 ║                                                           ║

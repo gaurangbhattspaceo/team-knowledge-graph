@@ -3,7 +3,7 @@
  * SessionEnd hook — extracts decisions, constraints, and rules from
  * the conversation and saves them to the knowledge graph.
  *
- * Receives the session transcript via $ARGUMENTS (JSON from Claude Code hooks).
+ * Receives the session transcript via $ARGUMENTS (JSON from MCP client hooks).
  * Parses it for patterns that indicate decisions, constraints, or rules.
  * Saves to Neo4j directly (no MCP — this runs after the session).
  */
@@ -42,7 +42,7 @@ function detectRepo(cwd) {
 }
 
 async function main() {
-  // Read hook input from stdin (Claude Code passes session data)
+  // Read hook input from stdin (MCP client passes session data)
   let input = '';
   try {
     input = fs.readFileSync('/dev/stdin', 'utf-8');

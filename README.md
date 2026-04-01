@@ -11,11 +11,11 @@ tkg-setup
 
 That's it. The setup:
 - Starts Neo4j (Docker)
-- Configures Claude Code MCP server
+- Configures MCP server
 - Adds auto-load hook (loads knowledge at session start)
 - Adds auto-save instructions (saves discoveries during work)
 
-Start a new Claude Code session — it works.
+Start a new AI coding session — it works.
 
 ## What Happens Automatically
 
