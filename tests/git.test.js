@@ -60,8 +60,8 @@ const git_js_1 = require("../dist/git.js");
         assert.deepStrictEqual(result, { url: 'github.com/acme/my-repo', name: 'my-repo' });
     });
     (0, node_test_1.it)('normalizes HTTP URL from self-hosted GitLab', () => {
-        const result = (0, git_js_1.normalizeRepoUrl)('http://172.16.16.51:9999/gaurangbhatt/fieldcamp-ai.git');
-        assert.deepStrictEqual(result, { url: '172.16.16.51:9999/gaurangbhatt/fieldcamp-ai', name: 'fieldcamp-ai' });
+        const result = (0, git_js_1.normalizeRepoUrl)('http://gitlab.example.com:8080/team/my-project.git');
+        assert.deepStrictEqual(result, { url: 'gitlab.example.com:8080/team/my-project', name: 'my-project' });
     });
     (0, node_test_1.it)('strips trailing slash', () => {
         const result = (0, git_js_1.normalizeRepoUrl)('https://github.com/acme/my-repo/');

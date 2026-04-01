@@ -31,8 +31,8 @@ describe('normalizeRepoUrl', () => {
   });
 
   it('normalizes HTTP URL from self-hosted GitLab', () => {
-    const result = normalizeRepoUrl('http://172.16.16.51:9999/gaurangbhatt/fieldcamp-ai.git');
-    assert.deepStrictEqual(result, { url: '172.16.16.51:9999/gaurangbhatt/fieldcamp-ai', name: 'fieldcamp-ai' });
+    const result = normalizeRepoUrl('http://gitlab.example.com:8080/team/my-project.git');
+    assert.deepStrictEqual(result, { url: 'gitlab.example.com:8080/team/my-project', name: 'my-project' });
   });
 
   it('strips trailing slash', () => {
