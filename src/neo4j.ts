@@ -35,11 +35,16 @@ const SCHEMA_STATEMENTS = [
   'CREATE CONSTRAINT product_name IF NOT EXISTS FOR (p:Product) REQUIRE p.name IS UNIQUE',
   'CREATE CONSTRAINT repo_url IF NOT EXISTS FOR (r:Repo) REQUIRE r.url IS UNIQUE',
   'CREATE CONSTRAINT tech_name_ver IF NOT EXISTS FOR (t:Technology) REQUIRE (t.name, t.version) IS UNIQUE',
+  'CREATE CONSTRAINT designrule_id IF NOT EXISTS FOR (d:DesignRule) REQUIRE d.id IS UNIQUE',
+  'CREATE CONSTRAINT platformrule_id IF NOT EXISTS FOR (p:PlatformRule) REQUIRE p.id IS UNIQUE',
+  'CREATE CONSTRAINT feedback_id IF NOT EXISTS FOR (f:Feedback) REQUIRE f.id IS UNIQUE',
+  'CREATE CONSTRAINT violation_id IF NOT EXISTS FOR (v:Violation) REQUIRE v.id IS UNIQUE',
+  'CREATE CONSTRAINT person_name IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE',
 ];
 
 const FULLTEXT_INDEX = `
   CREATE FULLTEXT INDEX knowledge_search IF NOT EXISTS
-  FOR (n:Decision|Constraint|Rule)
+  FOR (n:Decision|Constraint|Rule|DesignRule|PlatformRule)
   ON EACH [n.title, n.detail, n.reasoning]
 `;
 
