@@ -6,6 +6,8 @@ import { ruleSchema, rule } from './tools/rule.js';
 import { querySchema, query } from './tools/query.js';
 import { relateSchema, relate } from './tools/relate.js';
 import { statusSchema, status } from './tools/status.js';
+import { lintSchema, lint } from './tools/lint.js';
+import { ingestSchema, ingest } from './tools/ingest.js';
 
 export function createServer(repo: RepoInfo | null): McpServer {
   const server = new McpServer({
@@ -42,6 +44,16 @@ export function createServer(repo: RepoInfo | null): McpServer {
 
   server.tool('knowledge_status', 'Show knowledge graph stats — counts and recent entries.', statusSchema.shape, async (args) => {
     const result = await status(statusSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_lint', 'Health check the knowledge graph. Finds stale entries, orphan nodes, contradictions, ambiguous entries, and duplicates. Use fix=true to auto-mark stale entries.', lintSchema.shape, async (args) => {
+    const result = await lint(lintSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_ingest', 'Capture feedback from founder/CSM/client. Auto-decomposes into design rules, platform rules, or business rules. Detects repeated feedback and auto-escalates severity.', ingestSchema.shape, async (args) => {
+    const result = await ingest(ingestSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
 
