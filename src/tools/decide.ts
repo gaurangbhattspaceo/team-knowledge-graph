@@ -10,6 +10,7 @@ export const decideSchema = z.object({
   files: z.array(z.string()).optional(),
   technologies: z.array(z.string()).optional(),
   supersedes: z.string().optional(),
+  confidence: z.enum(['explicit', 'inferred', 'ambiguous']).optional().default('explicit').describe('explicit = user stated, inferred = AI detected from context, ambiguous = uncertain'),
 });
 
 export type DecideInput = z.infer<typeof decideSchema>;
@@ -28,9 +29,10 @@ export async function decide(input: DecideInput, repo: RepoInfo | null): Promise
         reasoning: $reasoning,
         date: $date,
         createdBy: $createdBy,
-        status: 'active'
+        status: 'active',
+        confidence: $confidence
       })`,
-      { id, title: input.title, reasoning: input.reasoning, date, createdBy: 'ai-agent' }
+      { id, title: input.title, reasoning: input.reasoning, date, createdBy: 'ai-agent', confidence: input.confidence || 'explicit' }
     );
 
     // Link to Repo via DISCOVERED_IN
@@ -103,6 +105,19 @@ export async function decide(input: DecideInput, repo: RepoInfo | null): Promise
         { oldId: input.supersedes, id }
       );
     }
+
+    // Auto cross-reference: find related existing entries and link them
+    try {
+      await session.run(
+        `MATCH (d:Decision {id: $id})
+         CALL db.index.fulltext.queryNodes('knowledge_search', $searchTerms) YIELD node, score
+         WHERE score > 1.0 AND node.id <> $id
+         WITH d, node, score
+         LIMIT 3
+         MERGE (d)-[:RELATED_TO {score: score, auto: true}]->(node)`,
+        { id, searchTerms: input.title.split(' ').slice(0, 5).join(' ') + '*' }
+      );
+    } catch { /* fulltext index may not exist yet — skip silently */ }
 
     return { id, stored: true };
   } finally {

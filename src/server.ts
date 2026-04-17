@@ -6,6 +6,13 @@ import { ruleSchema, rule } from './tools/rule.js';
 import { querySchema, query } from './tools/query.js';
 import { relateSchema, relate } from './tools/relate.js';
 import { statusSchema, status } from './tools/status.js';
+import { lintSchema, lint } from './tools/lint.js';
+import { ingestSchema, ingest } from './tools/ingest.js';
+import { guardSchema, guard } from './tools/guard.js';
+import { reviewSchema, review } from './tools/review.js';
+import { violationsSchema, violations } from './tools/violations.js';
+import { traceSchema, trace } from './tools/trace.js';
+import { impactSchema, impact } from './tools/impact.js';
 
 export function createServer(repo: RepoInfo | null): McpServer {
   const server = new McpServer({
@@ -40,8 +47,43 @@ export function createServer(repo: RepoInfo | null): McpServer {
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   });
 
-  server.tool('knowledge_status', 'Show knowledge graph stats — counts and recent entries.', statusSchema.shape, async (args) => {
+  server.tool('knowledge_health', 'Health dashboard for the knowledge graph. Shows counts, recent entries, compliance metrics, top violations, and founder repeat feedback.', statusSchema.shape, async (args) => {
     const result = await status(statusSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_lint', 'Health check the knowledge graph. Finds stale entries, orphan nodes, contradictions, ambiguous entries, and duplicates. Use fix=true to auto-mark stale entries.', lintSchema.shape, async (args) => {
+    const result = await lint(lintSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_ingest', 'Capture feedback from founder/CSM/client. Auto-decomposes into design rules, platform rules, or business rules. Detects repeated feedback and auto-escalates severity.', ingestSchema.shape, async (args) => {
+    const result = await ingest(ingestSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_guard', 'Pre-flight check before building. Returns all design rules, platform rules, and business rules that apply to the work you are about to do. Call this before writing code.', guardSchema.shape, async (args) => {
+    const result = await guard(guardSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_review', 'Review a diff or PR against the knowledge graph. Returns all rules that apply to the changes, highlighting CI gates and must-follow rules.', reviewSchema.shape, async (args) => {
+    const result = await review(reviewSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_violations', 'Record or query rule violations. Recording increments repeat_count and auto-escalates enforcement.', violationsSchema.shape, async (args) => {
+    const result = await violations(violationsSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_trace', 'Trace a rule back to its origin. Shows who created it, how many times repeated, and violation history.', traceSchema.shape, async (args) => {
+    const result = await trace(traceSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_impact', 'Cross-product impact analysis. Given a change in one product, shows connected products, shared dependencies, and rules at risk.', impactSchema.shape, async (args) => {
+    const result = await impact(impactSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
 

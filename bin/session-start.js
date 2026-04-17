@@ -3,7 +3,13 @@
  * SessionStart hook — queries the knowledge graph for entries relevant to this repo
  * and outputs them as context for the AI agent.
  *
- * Runs automatically at the start of every AI coding session.
+ * Priority ordering:
+ * 1. REPEATED FEEDBACK (repeat_count >= 2) — founder said this 2+ times
+ * 2. MUST design/platform rules
+ * 3. Active constraints
+ * 4. Recent decisions
+ * 5. Business rules
+ *
  * Output goes to stdout → injected into conversation context.
  */
 const neo4j = require('neo4j-driver');
@@ -14,7 +20,11 @@ const uri = process.env.NEO4J_URI || 'bolt://localhost:7687';
 const user = process.env.NEO4J_USER || 'neo4j';
 const password = process.env.NEO4J_PASSWORD || 'knowledge-graph-local';
 
-// Detect git repo from cwd
+function toNum(v) {
+  if (v && typeof v === 'object' && typeof v.toNumber === 'function') return v.toNumber();
+  return Number(v) || 0;
+}
+
 function detectRepo(cwd) {
   let dir = cwd;
   while (dir !== path.dirname(dir)) {
@@ -41,73 +51,141 @@ async function main() {
   try {
     driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
     const session = driver.session();
-
-    const repoUrl = detectRepo(process.cwd());
-
-    // Get recent entries (global — cross-project knowledge is the point)
-    const result = await session.run(`
-      MATCH (n)
-      WHERE ANY(label IN labels(n) WHERE label IN ['Decision', 'Constraint', 'Rule'])
-      AND n.status IS NULL OR n.status <> 'superseded'
-      OPTIONAL MATCH (n)-[:AFFECTS|GOVERNS|APPLIES_TO]->(p:Product)
-      WITH n, COLLECT(DISTINCT p.name) AS products,
-           [l IN labels(n) WHERE l IN ['Decision','Constraint','Rule']][0] AS type
-      RETURN type, n.title AS title,
-             COALESCE(n.detail, n.reasoning, '') AS detail,
-             n.severity AS severity,
-             n.domain AS domain,
-             products
-      ORDER BY n.date DESC
-      LIMIT 30
-    `);
-
-    if (result.records.length === 0) {
-      await session.close();
-      return; // Empty graph — nothing to inject
-    }
-
-    const constraints = [];
-    const decisions = [];
-    const rules = [];
-
-    for (const record of result.records) {
-      const type = record.get('type');
-      const title = record.get('title');
-      const detail = record.get('detail');
-      const severity = record.get('severity');
-      const products = record.get('products').filter(Boolean);
-      const productTag = products.length > 0 ? ` [${products.join(', ')}]` : '';
-
-      if (type === 'Constraint') {
-        const sev = severity === 'breaking' ? '🔴' : severity === 'warning' ? '🟡' : 'ℹ️';
-        constraints.push(`${sev} ${title}${productTag}`);
-      } else if (type === 'Decision') {
-        decisions.push(`• ${title}${productTag}${detail ? ' — ' + detail.substring(0, 100) : ''}`);
-      } else if (type === 'Rule') {
-        const domain = record.get('domain');
-        rules.push(`• [${domain}] ${title}${productTag}`);
-      }
-    }
+    detectRepo(process.cwd()); // reserved for future repo-scoped filtering
 
     let output = '';
 
-    if (constraints.length > 0) {
-      output += `## Known Constraints (from Team Knowledge Graph)\n`;
-      output += constraints.join('\n') + '\n\n';
+    // 1. REPEATED FEEDBACK — rules with repeat_count >= 2
+    const repeatedResult = await session.run(`
+      MATCH (n)
+      WHERE (n:DesignRule OR n:PlatformRule OR n:Rule)
+      AND COALESCE(n.status, 'active') = 'active'
+      AND COALESCE(n.repeat_count, 1) >= 2
+      RETURN n.title AS title,
+             COALESCE(n.repeat_count, 1) AS repeat_count,
+             n.last_violated AS last_violated,
+             COALESCE(n.source_name, '') AS source,
+             [l IN labels(n) WHERE l IN ['DesignRule','PlatformRule','Rule']][0] AS type
+      ORDER BY n.repeat_count DESC
+      LIMIT 10
+    `);
+
+    if (repeatedResult.records.length > 0) {
+      output += `## REPEATED FEEDBACK (said 2+ times — do not miss these)\n`;
+      for (const rec of repeatedResult.records) {
+        const title = rec.get('title');
+        const count = toNum(rec.get('repeat_count'));
+        const source = rec.get('source') || 'unknown';
+        const lastViolated = rec.get('last_violated');
+        output += `- ${title} [${count}x, source: ${source}${lastViolated ? ', last violated: ' + lastViolated : ''}]\n`;
+      }
+      output += '\n';
     }
 
-    if (decisions.length > 0) {
+    // 2. DESIGN + PLATFORM RULES — must severity, not yet repeated
+    const designResult = await session.run(`
+      MATCH (n)
+      WHERE (n:DesignRule OR n:PlatformRule)
+      AND COALESCE(n.status, 'active') = 'active'
+      AND COALESCE(n.severity, 'should') = 'must'
+      AND COALESCE(n.repeat_count, 1) < 2
+      OPTIONAL MATCH (n)-[:APPLIES_TO]->(p:Product)
+      WITH n, collect(DISTINCT p.name) AS products,
+           [l IN labels(n) WHERE l IN ['DesignRule','PlatformRule']][0] AS type
+      RETURN type, n.title AS title, products,
+             COALESCE(n.scope, 'product') AS scope,
+             COALESCE(n.platforms, []) AS platforms
+      ORDER BY n.date DESC
+      LIMIT 15
+    `);
+
+    if (designResult.records.length > 0) {
+      output += `## Design Rules (must-follow)\n`;
+      for (const rec of designResult.records) {
+        const title = rec.get('title');
+        const products = rec.get('products').filter(Boolean);
+        const platforms = rec.get('platforms');
+        const tags = [];
+        if (products.length > 0) tags.push(products.join(', '));
+        if (platforms.length > 0 && !platforms.includes('all')) tags.push(platforms.join(', '));
+        const tagStr = tags.length > 0 ? ` [${tags.join(' | ')}]` : '';
+        output += `- ${title}${tagStr}\n`;
+      }
+      output += '\n';
+    }
+
+    // 3. CONSTRAINTS
+    const constraintResult = await session.run(`
+      MATCH (n:Constraint)
+      WHERE n.status IS NULL OR n.status <> 'superseded'
+      OPTIONAL MATCH (n)-[:AFFECTS|GOVERNS|APPLIES_TO]->(p:Product)
+      WITH n, collect(DISTINCT p.name) AS products
+      RETURN n.title AS title, n.severity AS severity, products
+      ORDER BY n.date DESC
+      LIMIT 10
+    `);
+
+    if (constraintResult.records.length > 0) {
+      output += `## Known Constraints\n`;
+      for (const rec of constraintResult.records) {
+        const title = rec.get('title');
+        const severity = rec.get('severity');
+        const products = rec.get('products').filter(Boolean);
+        const sev = severity === 'breaking' ? '🔴' : severity === 'warning' ? '🟡' : 'ℹ️';
+        const productTag = products.length > 0 ? ` [${products.join(', ')}]` : '';
+        output += `${sev} ${title}${productTag}\n`;
+      }
+      output += '\n';
+    }
+
+    // 4. DECISIONS
+    const decisionResult = await session.run(`
+      MATCH (n:Decision)
+      WHERE n.status IS NULL OR n.status <> 'superseded'
+      OPTIONAL MATCH (n)-[:AFFECTS]->(p:Product)
+      WITH n, collect(DISTINCT p.name) AS products
+      RETURN n.title AS title, COALESCE(n.reasoning, '') AS reasoning, products
+      ORDER BY n.date DESC
+      LIMIT 10
+    `);
+
+    if (decisionResult.records.length > 0) {
       output += `## Active Decisions\n`;
-      output += decisions.join('\n') + '\n\n';
+      for (const rec of decisionResult.records) {
+        const title = rec.get('title');
+        const reasoning = rec.get('reasoning');
+        const products = rec.get('products').filter(Boolean);
+        const productTag = products.length > 0 ? ` [${products.join(', ')}]` : '';
+        output += `- ${title}${productTag}${reasoning ? ' — ' + reasoning.substring(0, 100) : ''}\n`;
+      }
+      output += '\n';
     }
 
-    if (rules.length > 0) {
+    // 5. BUSINESS RULES
+    const ruleResult = await session.run(`
+      MATCH (n:Rule)
+      WHERE n.status IS NULL OR n.status <> 'superseded'
+      OPTIONAL MATCH (n)-[:APPLIES_TO]->(p:Product)
+      WITH n, collect(DISTINCT p.name) AS products
+      RETURN n.title AS title, n.domain AS domain, products
+      ORDER BY n.date DESC
+      LIMIT 10
+    `);
+
+    if (ruleResult.records.length > 0) {
       output += `## Business Rules\n`;
-      output += rules.join('\n') + '\n\n';
+      for (const rec of ruleResult.records) {
+        const title = rec.get('title');
+        const domain = rec.get('domain');
+        const products = rec.get('products').filter(Boolean);
+        const productTag = products.length > 0 ? ` [${products.join(', ')}]` : '';
+        output += `- ${domain ? '[' + domain + '] ' : ''}${title}${productTag}\n`;
+      }
+      output += '\n';
     }
 
     if (output) {
-      output += `_Use knowledge_query to search for more. Use knowledge_decide/knowledge_constraint/knowledge_rule to record new discoveries._\n`;
+      output += `_Use knowledge_query to search. Use knowledge_guard before building. Use knowledge_ingest to capture feedback._\n`;
       console.log(output);
     }
 

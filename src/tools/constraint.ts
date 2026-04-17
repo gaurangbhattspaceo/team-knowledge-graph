@@ -9,6 +9,7 @@ export const constraintSchema = z.object({
   severity: z.enum(['breaking', 'warning', 'info']),
   technologies: z.array(z.string()).optional(),
   products: z.array(z.string()).optional(),
+  confidence: z.enum(['explicit', 'inferred', 'ambiguous']).optional().default('explicit').describe('explicit = user stated, inferred = AI detected, ambiguous = uncertain'),
 });
 
 export type ConstraintInput = z.infer<typeof constraintSchema>;
@@ -27,7 +28,8 @@ export async function constraint(input: ConstraintInput, repo: RepoInfo | null):
         detail: $detail,
         severity: $severity,
         date: $date,
-        createdBy: $createdBy
+        createdBy: $createdBy,
+        confidence: $confidence
       })`,
       {
         id,
@@ -36,6 +38,7 @@ export async function constraint(input: ConstraintInput, repo: RepoInfo | null):
         severity: input.severity,
         date,
         createdBy: 'ai-agent',
+        confidence: input.confidence || 'explicit',
       }
     );
 
@@ -76,6 +79,19 @@ export async function constraint(input: ConstraintInput, repo: RepoInfo | null):
         );
       }
     }
+
+    // Auto cross-reference
+    try {
+      await session.run(
+        `MATCH (c:Constraint {id: $id})
+         CALL db.index.fulltext.queryNodes('knowledge_search', $searchTerms) YIELD node, score
+         WHERE score > 1.0 AND node.id <> $id
+         WITH c, node, score
+         LIMIT 3
+         MERGE (c)-[:RELATED_TO {score: score, auto: true}]->(node)`,
+        { id, searchTerms: input.title.split(' ').slice(0, 5).join(' ') + '*' }
+      );
+    } catch { /* skip if fulltext not ready */ }
 
     return { id, stored: true };
   } finally {
