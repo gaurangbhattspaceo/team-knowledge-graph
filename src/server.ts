@@ -8,6 +8,7 @@ import { relateSchema, relate } from './tools/relate.js';
 import { statusSchema, status } from './tools/status.js';
 import { lintSchema, lint } from './tools/lint.js';
 import { ingestSchema, ingest } from './tools/ingest.js';
+import { guardSchema, guard } from './tools/guard.js';
 
 export function createServer(repo: RepoInfo | null): McpServer {
   const server = new McpServer({
@@ -54,6 +55,11 @@ export function createServer(repo: RepoInfo | null): McpServer {
 
   server.tool('knowledge_ingest', 'Capture feedback from founder/CSM/client. Auto-decomposes into design rules, platform rules, or business rules. Detects repeated feedback and auto-escalates severity.', ingestSchema.shape, async (args) => {
     const result = await ingest(ingestSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_guard', 'Pre-flight check before building. Returns all design rules, platform rules, and business rules that apply to the work you are about to do. Call this before writing code.', guardSchema.shape, async (args) => {
+    const result = await guard(guardSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
 
