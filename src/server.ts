@@ -12,6 +12,7 @@ import { guardSchema, guard } from './tools/guard.js';
 import { reviewSchema, review } from './tools/review.js';
 import { violationsSchema, violations } from './tools/violations.js';
 import { traceSchema, trace } from './tools/trace.js';
+import { impactSchema, impact } from './tools/impact.js';
 
 export function createServer(repo: RepoInfo | null): McpServer {
   const server = new McpServer({
@@ -78,6 +79,11 @@ export function createServer(repo: RepoInfo | null): McpServer {
 
   server.tool('knowledge_trace', 'Trace a rule back to its origin. Shows who created it, how many times repeated, and violation history.', traceSchema.shape, async (args) => {
     const result = await trace(traceSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_impact', 'Cross-product impact analysis. Given a change in one product, shows connected products, shared dependencies, and rules at risk.', impactSchema.shape, async (args) => {
+    const result = await impact(impactSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
 
