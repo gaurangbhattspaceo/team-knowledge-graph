@@ -8,6 +8,7 @@ export const ruleSchema = z.object({
   detail: z.string().optional(),
   domain: z.string(),
   products: z.array(z.string()).optional(),
+  confidence: z.enum(['explicit', 'inferred', 'ambiguous']).optional().default('explicit').describe('explicit = user stated, inferred = AI detected, ambiguous = uncertain'),
 });
 
 export type RuleInput = z.infer<typeof ruleSchema>;
@@ -26,7 +27,8 @@ export async function rule(input: RuleInput, repo: RepoInfo | null): Promise<{ i
         detail: $detail,
         domain: $domain,
         date: $date,
-        createdBy: $createdBy
+        createdBy: $createdBy,
+        confidence: $confidence
       })`,
       {
         id,
@@ -35,6 +37,7 @@ export async function rule(input: RuleInput, repo: RepoInfo | null): Promise<{ i
         domain: input.domain,
         date,
         createdBy: 'ai-agent',
+        confidence: input.confidence || 'explicit',
       }
     );
 
@@ -61,6 +64,19 @@ export async function rule(input: RuleInput, repo: RepoInfo | null): Promise<{ i
         );
       }
     }
+
+    // Auto cross-reference
+    try {
+      await session.run(
+        `MATCH (r:Rule {id: $id})
+         CALL db.index.fulltext.queryNodes('knowledge_search', $searchTerms) YIELD node, score
+         WHERE score > 1.0 AND node.id <> $id
+         WITH r, node, score
+         LIMIT 3
+         MERGE (r)-[:RELATED_TO {score: score, auto: true}]->(node)`,
+        { id, searchTerms: input.title.split(' ').slice(0, 5).join(' ') + '*' }
+      );
+    } catch { /* skip if fulltext not ready */ }
 
     return { id, stored: true };
   } finally {
