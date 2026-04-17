@@ -47,7 +47,7 @@ export function createServer(repo: RepoInfo | null): McpServer {
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   });
 
-  server.tool('knowledge_status', 'Show knowledge graph stats — counts and recent entries.', statusSchema.shape, async (args) => {
+  server.tool('knowledge_health', 'Health dashboard for the knowledge graph. Shows counts, recent entries, compliance metrics, top violations, and founder repeat feedback.', statusSchema.shape, async (args) => {
     const result = await status(statusSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
