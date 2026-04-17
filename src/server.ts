@@ -10,6 +10,7 @@ import { lintSchema, lint } from './tools/lint.js';
 import { ingestSchema, ingest } from './tools/ingest.js';
 import { guardSchema, guard } from './tools/guard.js';
 import { reviewSchema, review } from './tools/review.js';
+import { violationsSchema, violations } from './tools/violations.js';
 
 export function createServer(repo: RepoInfo | null): McpServer {
   const server = new McpServer({
@@ -66,6 +67,11 @@ export function createServer(repo: RepoInfo | null): McpServer {
 
   server.tool('knowledge_review', 'Review a diff or PR against the knowledge graph. Returns all rules that apply to the changes, highlighting CI gates and must-follow rules.', reviewSchema.shape, async (args) => {
     const result = await review(reviewSchema.parse(args), repo);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.tool('knowledge_violations', 'Record or query rule violations. Recording increments repeat_count and auto-escalates enforcement.', violationsSchema.shape, async (args) => {
+    const result = await violations(violationsSchema.parse(args), repo);
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
   });
 
